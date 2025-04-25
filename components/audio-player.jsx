@@ -8,19 +8,32 @@ export function AudioPlayer({ track, onNext, onPrevious, hasNext, hasPrevious })
     const [duration, setDuration] = useState(0);
     const [volume, setVolume] = useState(1);
     const [isMuted, setIsMuted] = useState(false);
+    const [error, setError] = useState(null);
     const audioRef = useRef(null);
 
     // Reset state and play when track changes
     useEffect(() => {
+        if (!track) return;
+
         setIsPlaying(false);
         setCurrentTime(0);
         setDuration(0);
+        setError(null);
 
         // Add a small delay to ensure the audio element is ready
         const timer = setTimeout(() => {
             if (audioRef.current) {
-                audioRef.current.play();
-                setIsPlaying(true);
+                const playPromise = audioRef.current.play();
+                if (playPromise !== undefined) {
+                    playPromise
+                        .then(() => {
+                            setIsPlaying(true);
+                        })
+                        .catch((error) => {
+                            console.error('Error playing audio:', error);
+                            setError('Error playing audio. Please try again.');
+                        });
+                }
             }
         }, 100);
 
@@ -51,14 +64,21 @@ export function AudioPlayer({ track, onNext, onPrevious, hasNext, hasPrevious })
             }
         };
 
+        const handleError = (e) => {
+            console.error('Audio error:', e);
+            setError('Error loading audio. Please try again.');
+        };
+
         audio.addEventListener('timeupdate', handleTimeUpdate);
         audio.addEventListener('loadedmetadata', handleLoadedMetadata);
         audio.addEventListener('ended', handleEnded);
+        audio.addEventListener('error', handleError);
 
         return () => {
             audio.removeEventListener('timeupdate', handleTimeUpdate);
             audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
             audio.removeEventListener('ended', handleEnded);
+            audio.removeEventListener('error', handleError);
         };
     }, [hasNext, onNext, track]);
 
@@ -74,7 +94,17 @@ export function AudioPlayer({ track, onNext, onPrevious, hasNext, hasPrevious })
         if (isPlaying) {
             audioRef.current.pause();
         } else {
-            audioRef.current.play();
+            const playPromise = audioRef.current.play();
+            if (playPromise !== undefined) {
+                playPromise
+                    .then(() => {
+                        setIsPlaying(!isPlaying);
+                    })
+                    .catch((error) => {
+                        console.error('Error playing audio:', error);
+                        setError('Error playing audio. Please try again.');
+                    });
+            }
         }
         setIsPlaying(!isPlaying);
     };
@@ -99,6 +129,9 @@ export function AudioPlayer({ track, onNext, onPrevious, hasNext, hasPrevious })
 
     return (
         <div className="flex flex-col gap-4 p-4 bg-gray-900 rounded-lg shadow">
+            {error && (
+                <div className="text-red-500 text-sm mb-2">{error}</div>
+            )}
             <div className="flex items-center gap-4">
                 <button
                     onClick={() => {
@@ -141,8 +174,8 @@ export function AudioPlayer({ track, onNext, onPrevious, hasNext, hasPrevious })
                 </button>
 
                 <div className="flex-1">
-                    <h3 className="font-medium text-white">{track.name}</h3>
-                    <p className="text-sm text-gray-300">{track.artist_name}</p>
+                    <h3 className="font-medium text-white">{track.title}</h3>
+                    <p className="text-sm text-gray-300">{track.artist}</p>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -183,8 +216,9 @@ export function AudioPlayer({ track, onNext, onPrevious, hasNext, hasPrevious })
 
             <audio
                 ref={audioRef}
-                src={track.audio}
+                src={track.streamUrl}
                 preload="metadata"
+                crossOrigin="anonymous"
             />
         </div>
     );
