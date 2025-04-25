@@ -11,7 +11,7 @@ export function AudioPlayer({ track, onNext, onPrevious, hasNext, hasPrevious })
     const [error, setError] = useState(null);
     const audioRef = useRef(null);
 
-    // Reset state and play when track changes
+    // Reset state when track changes
     useEffect(() => {
         if (!track) return;
 
@@ -20,24 +20,8 @@ export function AudioPlayer({ track, onNext, onPrevious, hasNext, hasPrevious })
         setDuration(0);
         setError(null);
 
-        // Add a small delay to ensure the audio element is ready
-        const timer = setTimeout(() => {
-            if (audioRef.current) {
-                const playPromise = audioRef.current.play();
-                if (playPromise !== undefined) {
-                    playPromise
-                        .then(() => {
-                            setIsPlaying(true);
-                        })
-                        .catch((error) => {
-                            console.error('Error playing audio:', error);
-                            setError('Error playing audio. Please try again.');
-                        });
-                }
-            }
-        }, 100);
-
-        return () => clearTimeout(timer);
+        // Don't automatically play on track change
+        // Let the user click play instead
     }, [track]);
 
     useEffect(() => {
@@ -93,12 +77,13 @@ export function AudioPlayer({ track, onNext, onPrevious, hasNext, hasPrevious })
 
         if (isPlaying) {
             audioRef.current.pause();
+            setIsPlaying(false);
         } else {
             const playPromise = audioRef.current.play();
             if (playPromise !== undefined) {
                 playPromise
                     .then(() => {
-                        setIsPlaying(!isPlaying);
+                        setIsPlaying(true);
                     })
                     .catch((error) => {
                         console.error('Error playing audio:', error);
@@ -106,7 +91,6 @@ export function AudioPlayer({ track, onNext, onPrevious, hasNext, hasPrevious })
                     });
             }
         }
-        setIsPlaying(!isPlaying);
     };
 
     const handleVolumeChange = (e) => {
