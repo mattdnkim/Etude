@@ -10,6 +10,7 @@ export function AudioPlayer({ track, onNext, onPrevious, hasNext, hasPrevious })
     const [isMuted, setIsMuted] = useState(false);
     const [error, setError] = useState(null);
     const audioRef = useRef(null);
+    const iframeRef = useRef(null);
 
     // Reset state when track changes
     useEffect(() => {
@@ -17,90 +18,110 @@ export function AudioPlayer({ track, onNext, onPrevious, hasNext, hasPrevious })
 
         setIsPlaying(false);
         setCurrentTime(0);
-        setDuration(0);
+        setDuration(track.duration || 0);
         setError(null);
 
-        // Don't automatically play on track change
-        // Let the user click play instead
+        // Clean up previous iframe if it exists
+        if (iframeRef.current) {
+            iframeRef.current.remove();
+            iframeRef.current = null;
+        }
+
+        // Create new iframe for YouTube video
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = `https://www.youtube.com/embed/${track.id}?enablejsapi=1&origin=${window.location.origin}`;
+        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+        iframe.allowFullscreen = true;
+        document.body.appendChild(iframe);
+        iframeRef.current = iframe;
+
+        // Load YouTube IFrame API
+        const tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        const firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+        return () => {
+            if (iframeRef.current) {
+                iframeRef.current.remove();
+                iframeRef.current = null;
+            }
+        };
     }, [track]);
 
     useEffect(() => {
-        const audio = audioRef.current;
-        if (!audio) return;
+        if (!window.YT) return;
 
-        const handleTimeUpdate = () => {
-            if (audio) {
-                setCurrentTime(audio.currentTime);
+        window.onYouTubeIframeAPIReady = () => {
+            if (iframeRef.current) {
+                const player = new window.YT.Player(iframeRef.current, {
+                    events: {
+                        'onReady': (event) => {
+                            // Player is ready
+                        },
+                        'onStateChange': (event) => {
+                            if (event.data === window.YT.PlayerState.ENDED) {
+                                setIsPlaying(false);
+                                setCurrentTime(0);
+                                if (hasNext) {
+                                    onNext();
+                                }
+                            } else if (event.data === window.YT.PlayerState.PLAYING) {
+                                setIsPlaying(true);
+                            } else if (event.data === window.YT.PlayerState.PAUSED) {
+                                setIsPlaying(false);
+                            }
+                        }
+                    }
+                });
             }
         };
-
-        const handleLoadedMetadata = () => {
-            if (audio) {
-                setDuration(audio.duration);
-            }
-        };
-
-        const handleEnded = () => {
-            setIsPlaying(false);
-            setCurrentTime(0);
-            if (hasNext) {
-                onNext();
-            }
-        };
-
-        const handleError = (e) => {
-            console.error('Audio error:', e);
-            setError('Error loading audio. Please try again.');
-        };
-
-        audio.addEventListener('timeupdate', handleTimeUpdate);
-        audio.addEventListener('loadedmetadata', handleLoadedMetadata);
-        audio.addEventListener('ended', handleEnded);
-        audio.addEventListener('error', handleError);
-
-        return () => {
-            audio.removeEventListener('timeupdate', handleTimeUpdate);
-            audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-            audio.removeEventListener('ended', handleEnded);
-            audio.removeEventListener('error', handleError);
-        };
-    }, [hasNext, onNext, track]);
-
-    useEffect(() => {
-        if (audioRef.current) {
-            audioRef.current.volume = isMuted ? 0 : volume;
-        }
-    }, [volume, isMuted]);
+    }, [hasNext, onNext]);
 
     const handlePlayPause = () => {
-        if (!audioRef.current) return;
+        if (!iframeRef.current || !window.YT) return;
 
-        if (isPlaying) {
-            audioRef.current.pause();
-            setIsPlaying(false);
-        } else {
-            const playPromise = audioRef.current.play();
-            if (playPromise !== undefined) {
-                playPromise
-                    .then(() => {
-                        setIsPlaying(true);
-                    })
-                    .catch((error) => {
-                        console.error('Error playing audio:', error);
-                        setError('Error playing audio. Please try again.');
-                    });
-            }
-        }
+        const player = iframeRef.current.contentWindow.postMessage(
+            JSON.stringify({
+                event: 'command',
+                func: isPlaying ? 'pauseVideo' : 'playVideo',
+                args: []
+            }),
+            '*'
+        );
     };
 
     const handleVolumeChange = (e) => {
         const newVolume = parseFloat(e.target.value);
         setVolume(newVolume);
         setIsMuted(newVolume === 0);
+
+        if (iframeRef.current && window.YT) {
+            iframeRef.current.contentWindow.postMessage(
+                JSON.stringify({
+                    event: 'command',
+                    func: 'setVolume',
+                    args: [newVolume * 100]
+                }),
+                '*'
+            );
+        }
     };
 
     const toggleMute = () => {
         setIsMuted(!isMuted);
+
+        if (iframeRef.current && window.YT) {
+            iframeRef.current.contentWindow.postMessage(
+                JSON.stringify({
+                    event: 'command',
+                    func: isMuted ? 'unMute' : 'mute',
+                    args: []
+                }),
+                '*'
+            );
+        }
     };
 
     const formatTime = (time) => {
@@ -197,13 +218,6 @@ export function AudioPlayer({ track, onNext, onPrevious, hasNext, hasPrevious })
                     style={{ width: `${(currentTime / duration) * 100}%` }}
                 />
             </div>
-
-            <audio
-                ref={audioRef}
-                src={track.streamUrl}
-                preload="metadata"
-                crossOrigin="anonymous"
-            />
         </div>
     );
 } 
