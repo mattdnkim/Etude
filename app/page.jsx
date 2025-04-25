@@ -1,56 +1,74 @@
-import Link from 'next/link';
-import Card from '@/components/card';
-import { ContextAlert } from 'components/context-alert';
-import { Markdown } from 'components/markdown';
-import { RandomQuote } from 'components/random-quote';
-import { getNetlifyContext } from 'utils';
+'use client';
 
-const contextExplainer = `
-The card below is rendered on the server based on the value of \`process.env.CONTEXT\` 
-([docs](https://docs.netlify.com/configure-builds/environment-variables/#build-metadata)):
-`;
+import { useState, useEffect } from 'react';
+import { AudioPlayer } from '@/components/audio-player';
+import { searchClassicalMusic } from '@/utils/music';
 
-const preDynamicContentExplainer = `
-The card content below is fetched by the client-side from \`/quotes/random\` (see file \`app/quotes/random/route.js\`) with a different quote shown on each page load:
-`;
+export default function HomePage() {
+    const [track, setTrack] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-const postDynamicContentExplainer = `
-On Netlify, Next.js Route Handlers are automatically deployed as [Serverless Functions](https://docs.netlify.com/functions/overview/).
-Alternatively, you can add Serverless Functions to any site regardless of framework, with acccess to the [full context data](https://docs.netlify.com/functions/api/).
+    useEffect(() => {
+        const fetchRandomTrack = async () => {
+            setIsLoading(true);
+            try {
+                // Search for a variety of classical music
+                const results = await searchClassicalMusic('classical piano violin symphony');
+                if (results && results.length > 0) {
+                    // Select a random track
+                    const randomIndex = Math.floor(Math.random() * results.length);
+                    setTrack(results[randomIndex]);
+                }
+            } catch (error) {
+                console.error('Error fetching random track:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
 
-And as always with dynamic content, beware of layout shifts & flicker! (here, we aren't...)
-`;
+        fetchRandomTrack();
+    }, []);
 
-const ctx = getNetlifyContext();
+    const handleNextTrack = async () => {
+        setIsLoading(true);
+        try {
+            const results = await searchClassicalMusic('classical piano violin symphony');
+            if (results && results.length > 0) {
+                const randomIndex = Math.floor(Math.random() * results.length);
+                setTrack(results[randomIndex]);
+            }
+        } catch (error) {
+            console.error('Error fetching next track:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
-export default function Page() {
     return (
-        <div className="flex flex-col gap-12 sm:gap-16">
-            <section>
-                <h1 className="mb-4">Classical Music for You</h1>
-                <p className="mb-6 text-lg">Find your piece by many themes</p>
-                <Link href="" className="btn btn-lg sm:min-w-64">
-                    Read the Docs
-                </Link>
-            </section>
-
+        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-160px)] p-4">
+            <div className="max-w-2xl w-full">
+                <h1 className="text-4xl font-bold text-white mb-8 text-center">
+                    Welcome to Etude
+                </h1>
+                <p className="text-gray-300 text-center mb-8">
+                    Discover beautiful classical music. A new track will play automatically.
+                </p>
+                {isLoading ? (
+                    <div className="text-center text-white py-4">Loading music...</div>
+                ) : track ? (
+                    <div className="bg-gray-900 rounded-lg p-4">
+                        <AudioPlayer
+                            track={track}
+                            onNext={handleNextTrack}
+                            onPrevious={handleNextTrack}
+                            hasNext={true}
+                            hasPrevious={true}
+                        />
+                    </div>
+                ) : (
+                    <div className="text-center text-white py-4">No music found</div>
+                )}
+            </div>
         </div>
     );
-}
-
-function RuntimeContextCard() {
-    const title = `Netlify Context: running in ${ctx} mode.`;
-    if (ctx === 'dev') {
-        return (
-            <Card title={title}>
-                <p>Next.js will rebuild any page you navigate to, including static pages.</p>
-            </Card>
-        );
-    } else {
-        return (
-            <Card title={title}>
-                <p>This page was statically-generated at build time.</p>
-            </Card>
-        );
-    }
 }

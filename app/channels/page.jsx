@@ -11,7 +11,7 @@ const channels = [
         title: 'Baroque Channel',
         description: 'Experience the elegance of Baroque music',
         image: '/images/baroque-pattern.jpg',
-        searchQuery: 'baroque classical'
+        searchQuery: 'rameau baroque'
     },
     {
         id: 'classical',
@@ -25,7 +25,7 @@ const channels = [
         title: 'Romantic Channel',
         description: 'Immerse yourself in the passion of Romantic music',
         image: '/images/baroque-pattern.jpg',
-        searchQuery: 'romantic classical'
+        searchQuery: 'chopin schumann brahms romantic'
     },
     {
         id: 'modern',
@@ -36,19 +36,45 @@ const channels = [
     }
 ];
 
+// Cache for storing fetched tracks
+const tracksCache = new Map();
+
 export default function ChannelsPage() {
     const [selectedChannel, setSelectedChannel] = useState(null);
     const [tracks, setTracks] = useState([]);
     const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
+    const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
         if (selectedChannel) {
             const fetchTracks = async () => {
-                const results = await searchClassicalMusic(selectedChannel.searchQuery);
-                setTracks(results);
-                setCurrentTrackIndex(0);
+                // Check cache first
+                if (tracksCache.has(selectedChannel.id)) {
+                    const cachedTracks = tracksCache.get(selectedChannel.id);
+                    console.log('Cached tracks:', cachedTracks);
+                    setTracks(cachedTracks);
+                    return;
+                }
+
+                setIsLoading(true);
+                try {
+                    const results = await searchClassicalMusic(selectedChannel.searchQuery);
+                    console.log('Fetched tracks:', results);
+                    setTracks(results);
+                    // Cache the results
+                    tracksCache.set(selectedChannel.id, results);
+                } catch (error) {
+                    console.error('Error fetching tracks:', error);
+                } finally {
+                    setIsLoading(false);
+                }
             };
+
             fetchTracks();
+        } else {
+            // Clear tracks when no channel is selected
+            setTracks([]);
+            setCurrentTrackIndex(0);
         }
     }, [selectedChannel]);
 
@@ -64,27 +90,52 @@ export default function ChannelsPage() {
         }
     };
 
-    return (
-        <div className="container mx-auto px-4 py-8">
-            <h1 className="text-3xl font-bold mb-8">Classical Music Channels</h1>
+    const handleChannelClick = (channel) => {
+        // Toggle the selected channel
+        setSelectedChannel(selectedChannel?.id === channel.id ? null : channel);
+    };
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    const handleBackgroundClick = (e) => {
+        // Only deselect if clicking the background (not a channel)
+        if (e.target === e.currentTarget) {
+            setSelectedChannel(null);
+        }
+    };
+
+    return (
+        <div
+            className="flex flex-col min-h-0 cursor-pointer"
+            onClick={handleBackgroundClick}
+        >
+            <div className={`grid gap-2 p-2 ${selectedChannel
+                ? 'grid-cols-1 max-w-2xl mx-auto'
+                : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4'
+                }`}>
                 {channels.map((channel) => (
-                    <Card
+                    <div
                         key={channel.id}
-                        title={channel.title}
-                        description={channel.description}
-                        image={channel.image}
-                        onClick={() => setSelectedChannel(channel)}
-                        className={selectedChannel?.id === channel.id ? 'ring-2 ring-primary' : ''}
-                    />
+                        className={`transition-all duration-300 ${selectedChannel && selectedChannel.id !== channel.id ? 'hidden' : ''
+                            }`}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleChannelClick(channel);
+                        }}
+                    >
+                        <Card
+                            title={channel.title}
+                            description={channel.description}
+                            image={channel.image}
+                            isSelected={selectedChannel?.id === channel.id}
+                            showImage={selectedChannel?.id === channel.id}
+                        />
+                    </div>
                 ))}
             </div>
-
-            {selectedChannel && tracks.length > 0 && (
-                <div className="space-y-8">
-                    <div className="bg-white rounded-lg shadow p-6">
-                        <h2 className="text-2xl font-bold mb-4">Now Playing</h2>
+            {selectedChannel && (
+                <div className="sticky bottom-0 left-0 right-0 bg-gray-900 p-2 z-50 min-h-[80px]">
+                    {isLoading ? (
+                        <div className="text-center text-white py-4">Loading tracks...</div>
+                    ) : tracks.length > 0 ? (
                         <AudioPlayer
                             track={tracks[currentTrackIndex]}
                             onNext={handleNextTrack}
@@ -92,35 +143,9 @@ export default function ChannelsPage() {
                             hasNext={currentTrackIndex < tracks.length - 1}
                             hasPrevious={currentTrackIndex > 0}
                         />
-                    </div>
-
-                    <div className="bg-white rounded-lg shadow p-6">
-                        <h2 className="text-2xl font-bold mb-4">Playlist</h2>
-                        <div className="space-y-2">
-                            {tracks.map((track, index) => (
-                                <div
-                                    key={track.id}
-                                    className={`flex items-center p-3 rounded-lg cursor-pointer ${index === currentTrackIndex
-                                        ? 'bg-primary text-white'
-                                        : 'hover:bg-gray-100'
-                                        }`}
-                                    onClick={() => setCurrentTrackIndex(index)}
-                                >
-                                    <span className="w-8 text-sm">
-                                        {index + 1}
-                                    </span>
-                                    <div className="flex-1">
-                                        <h3 className="font-medium">{track.name}</h3>
-                                        <p className="text-sm">{track.artist_name}</p>
-                                    </div>
-                                    <span className="text-sm">
-                                        {Math.floor(track.duration / 60)}:
-                                        {(track.duration % 60).toString().padStart(2, '0')}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                    ) : (
+                        <div className="text-center text-white py-4">No tracks found</div>
+                    )}
                 </div>
             )}
         </div>

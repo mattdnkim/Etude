@@ -21,7 +21,7 @@
   <polygon points="190,100 210,115 190,130" fill="#444"/>
 
   <!-- App name text -->
-  <text x="125" y="200" text-anchor="middle" font-family="Georgia, serif" font-size="20" fill="#222">
+  <text x="125" y="190" text-anchor="middle" font-family="Georgia, serif" font-size="32" font-weight="bold" fill="#222">
     Etude
   </text>
 </svg>

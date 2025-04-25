@@ -10,21 +10,57 @@ export function AudioPlayer({ track, onNext, onPrevious, hasNext, hasPrevious })
     const [isMuted, setIsMuted] = useState(false);
     const audioRef = useRef(null);
 
+    // Reset state and play when track changes
     useEffect(() => {
-        if (audioRef.current) {
-            audioRef.current.addEventListener('timeupdate', handleTimeUpdate);
-            audioRef.current.addEventListener('loadedmetadata', handleLoadedMetadata);
-            audioRef.current.addEventListener('ended', handleEnded);
-        }
+        setIsPlaying(false);
+        setCurrentTime(0);
+        setDuration(0);
 
-        return () => {
+        // Add a small delay to ensure the audio element is ready
+        const timer = setTimeout(() => {
             if (audioRef.current) {
-                audioRef.current.removeEventListener('timeupdate', handleTimeUpdate);
-                audioRef.current.removeEventListener('loadedmetadata', handleLoadedMetadata);
-                audioRef.current.removeEventListener('ended', handleEnded);
+                audioRef.current.play();
+                setIsPlaying(true);
+            }
+        }, 100);
+
+        return () => clearTimeout(timer);
+    }, [track]);
+
+    useEffect(() => {
+        const audio = audioRef.current;
+        if (!audio) return;
+
+        const handleTimeUpdate = () => {
+            if (audio) {
+                setCurrentTime(audio.currentTime);
             }
         };
-    }, []);
+
+        const handleLoadedMetadata = () => {
+            if (audio) {
+                setDuration(audio.duration);
+            }
+        };
+
+        const handleEnded = () => {
+            setIsPlaying(false);
+            setCurrentTime(0);
+            if (hasNext) {
+                onNext();
+            }
+        };
+
+        audio.addEventListener('timeupdate', handleTimeUpdate);
+        audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+        audio.addEventListener('ended', handleEnded);
+
+        return () => {
+            audio.removeEventListener('timeupdate', handleTimeUpdate);
+            audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+            audio.removeEventListener('ended', handleEnded);
+        };
+    }, [hasNext, onNext, track]);
 
     useEffect(() => {
         if (audioRef.current) {
@@ -33,28 +69,14 @@ export function AudioPlayer({ track, onNext, onPrevious, hasNext, hasPrevious })
     }, [volume, isMuted]);
 
     const handlePlayPause = () => {
+        if (!audioRef.current) return;
+
         if (isPlaying) {
             audioRef.current.pause();
         } else {
             audioRef.current.play();
         }
         setIsPlaying(!isPlaying);
-    };
-
-    const handleTimeUpdate = () => {
-        setCurrentTime(audioRef.current.currentTime);
-    };
-
-    const handleLoadedMetadata = () => {
-        setDuration(audioRef.current.duration);
-    };
-
-    const handleEnded = () => {
-        setIsPlaying(false);
-        setCurrentTime(0);
-        if (hasNext) {
-            onNext();
-        }
     };
 
     const handleVolumeChange = (e) => {
@@ -76,12 +98,14 @@ export function AudioPlayer({ track, onNext, onPrevious, hasNext, hasPrevious })
     if (!track) return null;
 
     return (
-        <div className="flex flex-col gap-4 p-4 bg-white rounded-lg shadow">
+        <div className="flex flex-col gap-4 p-4 bg-gray-900 rounded-lg shadow">
             <div className="flex items-center gap-4">
                 <button
-                    onClick={onPrevious}
+                    onClick={() => {
+                        onPrevious();
+                    }}
                     disabled={!hasPrevious}
-                    className="p-2 rounded-full text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="p-2 rounded-full text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -105,9 +129,11 @@ export function AudioPlayer({ track, onNext, onPrevious, hasNext, hasPrevious })
                 </button>
 
                 <button
-                    onClick={onNext}
+                    onClick={() => {
+                        onNext();
+                    }}
                     disabled={!hasNext}
-                    className="p-2 rounded-full text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="p-2 rounded-full text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -115,19 +141,19 @@ export function AudioPlayer({ track, onNext, onPrevious, hasNext, hasPrevious })
                 </button>
 
                 <div className="flex-1">
-                    <h3 className="font-medium">{track.name}</h3>
-                    <p className="text-sm text-gray-600">{track.artist_name}</p>
+                    <h3 className="font-medium text-white">{track.name}</h3>
+                    <p className="text-sm text-gray-300">{track.artist_name}</p>
                 </div>
 
                 <div className="flex items-center gap-2">
                     <button onClick={toggleMute} className="p-1">
                         {isMuted ? (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H7a2 2 0 012 2v2a2 2 0 01-2 2H5a2 2 0 01-2-2v-2a2 2 0 012-2h.586l4.707-4.707C10.923 11.663 12 12.109 12 13v2c0 .891-1.077 1.337-1.707.707L5.586 15z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
                             </svg>
                         ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H7a2 2 0 012 2v2a2 2 0 01-2 2H5a2 2 0 01-2-2v-2a2 2 0 012-2h.586l4.707-4.707C10.923 11.663 12 12.109 12 13v2c0 .891-1.077 1.337-1.707.707L5.586 15z" />
                             </svg>
                         )}
@@ -143,12 +169,12 @@ export function AudioPlayer({ track, onNext, onPrevious, hasNext, hasPrevious })
                     />
                 </div>
 
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-gray-300">
                     {formatTime(currentTime)} / {formatTime(duration)}
                 </div>
             </div>
 
-            <div className="w-full h-1 bg-gray-200 rounded-full overflow-hidden">
+            <div className="w-full h-1 bg-gray-700 rounded-full overflow-hidden">
                 <div
                     className="h-full bg-primary transition-all"
                     style={{ width: `${(currentTime / duration) * 100}%` }}

@@ -1,12 +1,9 @@
-import '../styles/globals.css';
-import { Footer } from '../components/footer';
 import { Header } from '../components/header';
+import '../styles/globals.css';
 
 export const metadata = {
-    title: {
-        template: '%s | Netlify',
-        default: 'Etude App'
-    }
+    title: 'Etude',
+    description: 'A music streaming application',
 };
 
 export default function RootLayout({ children }) {
@@ -20,7 +17,6 @@ export default function RootLayout({ children }) {
                     <div className="flex flex-col w-full max-w-5xl mx-auto grow">
                         <Header />
                         <main className="grow">{children}</main>
-                        <Footer />
                     </div>
                 </div>
             </body>
