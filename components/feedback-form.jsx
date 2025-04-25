@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Alert } from './alert';
-import { Card } from './card';
+import Card from '@/components/card';
 
 export function FeedbackForm() {
     const [status, setStatus] = useState(null);
