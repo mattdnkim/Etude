@@ -1,13 +1,10 @@
 const JAMENDO_API_URL = 'https://api.jamendo.com/v3.0';
 const JAMENDO_CLIENT_ID = process.env.NEXT_PUBLIC_JAMENDO_CLIENT_ID;
-const SOUNDCLOUD_CLIENT_ID = process.env.NEXT_PUBLIC_SOUNDCLOUD_CLIENT_ID;
 
 export async function searchClassicalMusic(query) {
     try {
         const response = await fetch(
-            `https://api.soundcloud.com/tracks?q=${encodeURIComponent(
-                query
-            )}&client_id=${SOUNDCLOUD_CLIENT_ID}&limit=10`
+            `${JAMENDO_API_URL}/tracks/?client_id=${JAMENDO_CLIENT_ID}&format=json&limit=10&tags=classical&search=${encodeURIComponent(query)}`
         );
 
         if (!response.ok) {
@@ -15,12 +12,12 @@ export async function searchClassicalMusic(query) {
         }
 
         const data = await response.json();
-        return data.map((track) => ({
+        return data.results.map((track) => ({
             id: track.id,
-            title: track.title,
-            artist: track.user?.username || 'Unknown Artist',
-            artwork: track.artwork_url || '/images/default-artwork.jpg',
-            streamUrl: `${track.stream_url}?client_id=${SOUNDCLOUD_CLIENT_ID}`,
+            title: track.name,
+            artist: track.artist_name,
+            artwork: track.image || '/images/default-artwork.jpg',
+            streamUrl: track.audio,
         }));
     } catch (error) {
         console.error('Error searching for music:', error);
