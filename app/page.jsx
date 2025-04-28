@@ -51,7 +51,7 @@ export default function HomePage() {
                     Welcome to Etude
                 </h1>
                 <p className="text-gray-300 text-center mb-8">
-                    Discover beautiful classical music. A new track will play automatically.
+                    Discover beautiful classical music. Click the play button to start.
                 </p>
                 {isLoading ? (
                     <div className="text-center text-white py-4">Loading music...</div>
